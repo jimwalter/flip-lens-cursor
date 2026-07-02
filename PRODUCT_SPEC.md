@@ -109,3 +109,13 @@ Individual resellers browsing estate-sale / marketplace listings in Chrome on ma
 > **Follow-ups (not in v1.1)**
 > - Dedicated eBay **sold/completed** price feed via the eBay API (needs an API key/credentials).
 > - Multi-engine search (Google Images, eBay) alongside Lens.
+
+## 15. Feature Request — Sourced prices, live re-crop, source link (v1.2, implemented)
+> **Title:** Linked price range, live updates on Lens re-crop, and a link back to the source page
+>
+> **Acceptance criteria**
+> - The **low** and **high** of the price range each link to the listing they were scraped from.
+> - Adjusting the Lens crop/selection on the results page re-searches and updates that item's
+>   sidebar entry (title + price range) automatically, every time the selection changes.
+> - Each entry links back to the URL of the page the screenshot was taken from, so the user can return later.
+> - A manually renamed title is preserved across re-searches (auto titles keep updating).

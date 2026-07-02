@@ -22,7 +22,12 @@ See [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md) for the full product spec and feature
 
 - Opens when you trigger a capture (icon or shortcut) and stays open across navigation.
 - Each entry shows the thumbnail, an editable auto-title, an estimated price range,
-  and a relative timestamp. Click a thumbnail or **Open** to re-open its Lens results.
+  a link back to the original page, and a relative timestamp. Click a thumbnail or
+  **Open** to re-open its Lens results.
+- The **low** and **high** of the price range are each links to the listing they came
+  from. **From &lt;site&gt;** re-opens the page you captured from.
+- If you adjust the Lens crop box on the results page, it re-searches and the sidebar
+  entry (title + price range) updates automatically for that item.
 - **Delete** removes one entry; **Clear** wipes the history. History persists locally
   (thumbnails only — full captures are never written to disk).
 

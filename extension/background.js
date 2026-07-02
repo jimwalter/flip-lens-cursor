@@ -141,6 +141,8 @@ async function handleSelection(rect, tab) {
     titleAuto: true,
     priceMin: null,
     priceMax: null,
+    priceMinUrl: "",
+    priceMaxUrl: "",
     currency: "",
     sourcePageUrl: tab.url || "",
     searchUrl: "",
@@ -162,14 +164,24 @@ async function handleResult(message, tab) {
   const { cid } = message;
   if (!cid) return;
 
-  await updateEntry(cid, {
-    title: message.title || "",
+  const history = await getHistory();
+  const entry = history.find((e) => e.id === cid);
+  if (!entry) return;
+
+  const patch = {
     priceMin: message.priceMin ?? null,
     priceMax: message.priceMax ?? null,
+    priceMinUrl: message.priceMinUrl || "",
+    priceMaxUrl: message.priceMaxUrl || "",
     currency: message.currency || "",
     searchUrl: message.searchUrl || "",
     status: "done"
-  });
+  };
+  // Don't clobber a title the user has renamed; keep updating auto titles
+  // (including when a Lens re-crop re-searches).
+  if (entry.titleAuto !== false && message.title) patch.title = message.title;
+
+  await updateEntry(cid, patch);
 
   const pending = await getPending();
   const tabId = tab && tab.id;

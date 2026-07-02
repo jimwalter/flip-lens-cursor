@@ -80,12 +80,30 @@ function renderCard(entry) {
   const price = document.createElement("div");
   if (entry.priceMin != null) {
     price.className = "price";
-    price.textContent = formatRange(entry.priceMin, entry.priceMax, entry.currency);
+    price.appendChild(priceNode(entry.priceMin, entry.currency, entry.priceMinUrl, "Open lowest-price listing"));
+    if (entry.priceMax !== entry.priceMin) {
+      price.appendChild(document.createTextNode(" – "));
+      price.appendChild(priceNode(entry.priceMax, entry.currency, entry.priceMaxUrl, "Open highest-price listing"));
+    }
   } else {
     price.className = "price unknown";
     price.textContent = entry.status === "searching" ? "Estimating price…" : "No price found";
   }
   body.appendChild(price);
+
+  if (entry.sourcePageUrl) {
+    const source = document.createElement("div");
+    source.className = "source";
+    const link = document.createElement("button");
+    link.className = "link source-link";
+    link.textContent = `From ${hostname(entry.sourcePageUrl)}`;
+    link.title = entry.sourcePageUrl;
+    link.addEventListener("click", () =>
+      chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url: entry.sourcePageUrl })
+    );
+    source.appendChild(link);
+    body.appendChild(source);
+  }
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -122,10 +140,28 @@ function openSearch(entry) {
   if (entry.searchUrl) chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url: entry.searchUrl });
 }
 
-function formatRange(min, max, currency) {
+function priceNode(value, currency, url, title) {
   const sym = currency || "$";
-  const fmt = (n) => sym + Math.round(n).toLocaleString();
-  return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
+  const label = sym + Math.round(value).toLocaleString();
+  if (url && /^https?:/.test(url)) {
+    const a = document.createElement("button");
+    a.className = "price-link";
+    a.textContent = label;
+    a.title = title;
+    a.addEventListener("click", () => chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url }));
+    return a;
+  }
+  const span = document.createElement("span");
+  span.textContent = label;
+  return span;
+}
+
+function hostname(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch (e) {
+    return "source";
+  }
 }
 
 function relativeTime(ts) {
