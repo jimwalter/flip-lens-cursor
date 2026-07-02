@@ -1,5 +1,14 @@
 # FlipLens — Product Spec & Feature Request
 
+> **v1.1 addendum — Sidebar search history.** Added a persistent Side Panel that
+> logs each capture with a thumbnail, an auto-assigned title, and an estimated
+> price range scraped from the Google Lens results (which include eBay/marketplace
+> listing prices). The panel stays open while browsing and collapses via **×**;
+> titles are inline-editable. Price is derived from result listing prices; a
+> dedicated **eBay sold-listings** price feed remains a follow-up (needs an eBay
+> API key). See §14.
+
+
 ## 1. One-liner
 A Chrome (Manifest V3) extension that lets a reseller drag-select any item on a webpage, capture it in-memory, and instantly run a Google Lens reverse-image search in a new tab — no file ever saved to disk.
 
@@ -81,3 +90,22 @@ Individual resellers browsing estate-sale / marketplace listings in Chrome on ma
 > - Selected region captured in memory only (no disk write).
 > - New tab auto-submits the image to Google Lens and shows results.
 > - Original tab remains open and unchanged.
+
+## 14. Feature Request — Sidebar search history (v1.1, implemented)
+> **Title:** Persistent sidebar with search history, auto titles, and price ranges
+>
+> **As a** flipper doing many lookups in a session
+> **I want** a sidebar that remembers each capture with a thumbnail, a title, and an
+> estimated price range
+> **so that** I can compare items and recall what I've researched without redoing searches.
+>
+> **Acceptance criteria**
+> - A sidebar (Chrome Side Panel) opens on capture and stays open across navigation; collapsible via **×**.
+> - Each capture is logged with a thumbnail and a relative timestamp; history persists locally.
+> - Once Lens loads, an auto title and an estimated price range are filled in; the title is editable.
+> - Entries can be re-opened (reload the Lens results), deleted individually, or cleared entirely.
+> - Only thumbnails are persisted; full captures are never written to disk.
+>
+> **Follow-ups (not in v1.1)**
+> - Dedicated eBay **sold/completed** price feed via the eBay API (needs an API key/credentials).
+> - Multi-engine search (Google Images, eBay) alongside Lens.

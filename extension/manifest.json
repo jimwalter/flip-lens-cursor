@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "FlipLens",
-  "version": "1.0.0",
-  "description": "Drag-select any item on a page and instantly reverse-image search it on Google Lens — nothing is saved to disk.",
-  "permissions": ["activeTab", "scripting", "commands", "storage"],
+  "version": "1.1.0",
+  "description": "Drag-select any item, reverse-image search it on Google Lens, and keep a sidebar history with auto titles and price ranges — nothing saved to disk.",
+  "permissions": ["activeTab", "scripting", "commands", "storage", "unlimitedStorage", "sidePanel"],
+  "host_permissions": ["https://www.google.com/*", "https://lens.google.com/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -22,6 +23,16 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/search*", "https://lens.google.com/*"],
+      "js": ["results.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "commands": {
     "start-capture": {
       "suggested_key": {

@@ -1,21 +1,24 @@
 // FlipLens uploader page.
-// Reads the in-memory capture handed off via session storage and submits it to
-// Google Lens by POSTing a real multipart form (a plain fetch to Lens is
-// blocked, but a form submit navigates this tab straight to the results).
+// Reads the in-memory capture (keyed by capture id) handed off via session
+// storage and submits it to Google Lens by POSTing a real multipart form — a
+// plain fetch to Lens is blocked, but a form submit navigates this tab straight
+// to the results, where results.js attaches a title + price to the history.
 
 (async () => {
   const status = document.getElementById("status");
+  const cid = new URLSearchParams(location.search).get("cid");
+  const key = `img_${cid}`;
 
-  const { flipLensImage } = await chrome.storage.session.get("flipLensImage");
-  if (!flipLensImage) {
+  const stored = await chrome.storage.session.get(key);
+  const image = stored[key];
+  if (!image) {
     status.textContent = "No capture found. Trigger FlipLens again to search.";
     return;
   }
   // One-shot hand-off: clear it so the image never lingers.
-  await chrome.storage.session.remove("flipLensImage");
+  await chrome.storage.session.remove(key);
 
-  const blob = dataUrlToBlob(flipLensImage);
-  const file = new File([blob], "capture.png", { type: "image/png" });
+  const file = new File([dataUrlToBlob(image)], "capture.png", { type: "image/png" });
 
   const form = document.createElement("form");
   form.action = `https://lens.google.com/v3/upload?ep=ccm&s=&st=${Date.now()}`;

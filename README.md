@@ -9,10 +9,22 @@ See [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md) for the full product spec and feature
 ## How it works
 
 1. On any page, click the **FlipLens** toolbar icon **or** press `Ctrl+Shift+Y`
-   (`Cmd+Shift+Y` on macOS).
+   (`Cmd+Shift+Y` on macOS). This also opens the FlipLens **sidebar**.
 2. A dimmed overlay appears — drag a box around the item (`Esc` cancels).
 3. The selected region is captured in memory and a new tab opens, auto-submitting
    the image to Google Lens. Results appear immediately; your original tab is untouched.
+4. The capture is added to the **sidebar history** with a thumbnail. Once Lens loads,
+   an auto **title** and an estimated **price range** (from the listing prices in the
+   results) are filled in. Titles are editable — click to rename. The sidebar stays
+   open while you browse; click **×** to collapse it.
+
+## Sidebar
+
+- Opens when you trigger a capture (icon or shortcut) and stays open across navigation.
+- Each entry shows the thumbnail, an editable auto-title, an estimated price range,
+  and a relative timestamp. Click a thumbnail or **Open** to re-open its Lens results.
+- **Delete** removes one entry; **Clear** wipes the history. History persists locally
+  (thumbnails only — full captures are never written to disk).
 
 ## Load the extension (development)
 
@@ -29,11 +41,13 @@ in [`extension/`](./extension) loads directly.
 
 ```
 extension/
-  manifest.json     MV3 manifest (permissions, action, command shortcut)
-  background.js     service worker: trigger routing, capture + crop (OffscreenCanvas)
-  overlay.js/.css   injected drag-to-select overlay
-  uploader.html/.js new tab that POSTs the image to Google Lens
-  icons/            toolbar icons
+  manifest.json      MV3 manifest (permissions, action, side panel, command shortcut)
+  background.js      service worker: trigger routing, capture + crop, history store
+  overlay.js/.css    injected drag-to-select overlay
+  uploader.html/.js  new tab that POSTs the image to Google Lens
+  results.js         content script: scrapes title + price range from Lens results
+  sidepanel.html/.css/.js  the history sidebar
+  icons/             toolbar icons
 ```
 
 ## Notes
