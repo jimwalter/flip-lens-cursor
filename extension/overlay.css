@@ -1,0 +1,30 @@
+.fliplens-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  cursor: crosshair;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.fliplens-rect {
+  position: fixed;
+  display: none;
+  border: 2px solid #4f8cff;
+  background: rgba(79, 140, 255, 0.12);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.fliplens-hint {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  pointer-events: none;
+  white-space: nowrap;
+}
