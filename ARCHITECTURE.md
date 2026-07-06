@@ -19,13 +19,44 @@ runs fully local, unlocked, and **testable with no account**.
 
 | Module | Responsibility | Default (local) | Becomes commercial by… |
 |---|---|---|---|
-| `config.js` | Env, endpoints, feature flags, plan catalog | `env=development`, empty URLs, flags off | Set `env=production`, fill `apiBaseUrl`/`authBaseUrl`, flip flags |
+| `config.js` | Env, endpoints, feature flags, plan catalog, free scan limit | `env=development`, empty URLs, flags off | Set `env=production`, fill `apiBaseUrl`/`authBaseUrl`/`checkoutUrl`, flip flags |
+| `email.js` | Email validation + normalization + disposable blocklist | used client-side | **reuse verbatim on the backend** (server must re-check) |
+| `account.js` | Signup/verify lifecycle, trial/paid status | local mock: generates + verifies code on-device | Implement register/verify against `apiBaseUrl`; set `flags.hostedAuth` |
+| `quota.js` | Free-trial scan accounting | `chrome.storage.local` | Server becomes source of truth (client just displays) |
 | `auth.js` | Session abstraction | Anonymous local session w/ stable id | Implement hosted OAuth/JWT behind `getSession/signIn/signOut` |
-| `entitlements.js` | Single source of "what can this user do" | Dev = all unlocked; simulator for Free/Pro | Read plan from token/`api.fetchEntitlements()` |
+| `entitlements.js` | Single source of "what can this user do" + quota view | paid→Pro; dev default Free (simulator for Pro) | Read plan from token/`api.fetchEntitlements()` |
 | `api.js` | Backend client | No-op (no network to our servers) | Implement REST calls to `apiBaseUrl` |
 | `history-store.js` | History repository (enforces plan limits) | `chrome.storage.local` | Add cloud reconcile via `api.syncHistory()` |
 | `analytics.js` | Telemetry | No-op; opt-in off | POST events when opted-in + flag on |
 | `settings.js` | Device settings | local | subset can move to account profile |
+
+## Gate: email → verify → 10 free scans → convert (v1.4)
+
+Flow (enforced in `background.js` `startCapture` → `evaluateGate()`):
+
+1. **No account** → sidebar shows the **email** screen (email + optional marketing consent).
+2. **Pending** → **verify** screen (6-digit code; dev surfaces the mock code on-screen).
+3. **Active + trial left** → capture proceeds; `quota.increment()` per successful scan; sidebar shows a trial meter.
+4. **Active + trial exhausted** (Free) → **paywall**; Upgrade → Stripe Checkout (prod) or simulated purchase (dev) → Pro/unlimited.
+
+**Abuse control:** accounts/quota are keyed on the **normalized** email (`email.js` collapses Gmail dots + any `+tag`, unifies `googlemail.com`, blocks disposable domains), so alias tricks map to one account. The client counter is advisory — **the backend must be the source of truth** (a local counter is bypassable by reinstalling/clearing storage). Requiring a *verified* email is the main lever that keeps bots — and therefore cloud usage/cost — down.
+
+### Backend contract (to implement for production)
+
+| Method + path | Purpose | Notes |
+|---|---|---|
+| `POST /v1/auth/register` `{email, marketingOptIn}` | Create/lookup account, email a code | Re-run `email.js` scrub server-side; store consent + timestamp; rate-limit per IP/email |
+| `POST /v1/auth/verify` `{email, code}` | Verify → returns session token | Expire codes; cap attempts |
+| `POST /v1/auth/resend` `{email}` | Re-send code | Rate-limit |
+| `GET /v1/entitlements` (auth) | Current plan | Derived from Stripe customer→plan |
+| `GET /v1/quota` (auth) | `{used, limit}` | **Authoritative** scan count, keyed on normalized email |
+| `POST /v1/scan` (auth) | Record a scan, return new count | Enforce limit here (reject when exhausted) |
+| `POST /v1/history` (auth) | Optional cloud sync | Behind `flags.cloudSync` |
+| `POST /v1/events` (auth) | Optional telemetry | Behind opt-in + `flags.analytics` |
+| `POST /webhooks/stripe` | Checkout/subscription updates → set plan | Verify signature |
+
+Email delivery via a provider (Resend/SendGrid/SES). At low volume the whole
+stack fits free/hobby tiers, so verified-email gating keeps cost near zero.
 
 **Rule:** UI and feature code never check plans or call the network directly —
 they ask `resolveEntitlements()` / `can(feature)` and talk to the worker via
@@ -50,9 +81,10 @@ Full captures are **never persisted or uploaded to us** — only kept in
 
 ## Plans (assumed; edit in `config.js`)
 
-- **Free:** 25-item history, Lens only, local only.
-- **Pro:** large/unlimited history, cloud sync, export, multi-engine (future).
-- **Developer (dev builds):** everything unlocked → no account needed to test.
+- **Free:** **10 scans**, 25-item history, Lens only, local only.
+- **Pro:** unlimited scans, large history, cloud sync, export, multi-engine (future).
+- Dev builds default to **Free** so the trial/paywall is exercised; the plan
+  simulator (Settings) or a simulated purchase switches to **Pro**.
 
 ## What's needed to begin (to actually go commercial)
 

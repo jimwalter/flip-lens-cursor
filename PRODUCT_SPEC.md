@@ -138,3 +138,22 @@ Individual resellers browsing estate-sale / marketplace listings in Chrome on ma
 >
 > **To go live (not built):** hosted auth (OAuth/JWT), Stripe billing + webhook, backend API
 > (`/entitlements`, `/history`, `/events`), Privacy Policy/ToS, Chrome Web Store listing. See `ARCHITECTURE.md` §"What's needed to begin".
+
+## 17. Feature Request — Verified-email signup + 10-scan free trial (v1.4, implemented; mock backend)
+> **Goal:** require a valid, verified email before use (keeps bots and cloud costs down),
+> grant 10 free scans, then convert to Pro. Retain email (with consent) for marketing.
+>
+> **Delivered (front-end + seams; local mock in dev)**
+> - Sidebar gate: email capture (+ optional marketing consent) → 6-digit verification → active.
+> - 10 free scans with a trial meter; capture is blocked until verified and while trial remains.
+> - Paywall on exhaustion; Upgrade simulates purchase in dev / opens Stripe Checkout in prod.
+> - Email scrubbing (`src/email.js`): normalize + collapse Gmail dots/`+aliases`, block disposable domains.
+> - Settings shows account email/status/scans/marketing consent + a dev reset.
+>
+> **Assumptions:** Free = 10 scans; accounts keyed on the **normalized** email; marketing consent
+> is explicit + optional (default off) for CAN-SPAM/GDPR; transactional (verification) email is always allowed.
+>
+> **To make real (not built):** backend endpoints for register/verify/quota/entitlements + Stripe
+> webhook (see `ARCHITECTURE.md` → *Backend contract*), an email provider (Resend/SendGrid/SES),
+> and a Privacy Policy/ToS. The client `email.js` logic must be re-run server-side; the server owns
+> the authoritative scan count. At low volume this fits free tiers, so verified-email gating keeps cost ~$0.

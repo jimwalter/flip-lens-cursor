@@ -4,9 +4,12 @@
 
 const els = {
   planBadge: document.getElementById("plan-badge"),
+  accountEmail: document.getElementById("account-email"),
   accountStatus: document.getElementById("account-status"),
+  accountScans: document.getElementById("account-scans"),
+  accountMarketing: document.getElementById("account-marketing"),
   sessionId: document.getElementById("session-id"),
-  signin: document.getElementById("signin"),
+  devReset: document.getElementById("dev-reset"),
   planLabel: document.getElementById("plan-label"),
   limits: document.getElementById("limits"),
   simPlan: document.getElementById("sim-plan"),
@@ -41,6 +44,11 @@ async function init() {
   els.cloudSync.addEventListener("change", () =>
     save({ cloudSyncEnabled: els.cloudSync.checked })
   );
+  els.devReset.addEventListener("click", async () => {
+    const res = await chrome.runtime.sendMessage({ type: "FLIPLENS_DEV_RESET" });
+    state = res.state;
+    paint();
+  });
 }
 
 async function save(patch) {
@@ -50,13 +58,23 @@ async function save(patch) {
 
 function paint() {
   if (!state) return;
-  const { entitlements: ent, settings, session, version, env, flags } = state;
+  const { entitlements: ent, settings, session, version, env, flags, account, quota } = state;
 
   els.planBadge.textContent = ent.label;
   els.planLabel.textContent = ent.label;
   els.sessionId.textContent = session.id;
-  els.accountStatus.textContent =
-    session.type === "anonymous" ? "Local session — no account needed" : "Signed in";
+
+  els.accountEmail.textContent = account ? account.email : "—";
+  els.accountStatus.textContent = !account
+    ? "No email yet"
+    : account.status === "active"
+    ? "Verified"
+    : "Pending verification";
+  els.accountScans.textContent = quota.unlimited
+    ? "Unlimited (Pro)"
+    : `${quota.used} / ${quota.limit}`;
+  els.accountMarketing.textContent = account ? (account.marketingOptIn ? "Yes" : "No") : "—";
+  els.devReset.hidden = env !== "development";
 
   els.limits.innerHTML = "";
   for (const [key, value] of Object.entries(ent.limits)) {

@@ -21,17 +21,29 @@
       </div>
     </header>
 
-    <p class="hint">
-      Press <kbd id="shortcut-hint">Ctrl/Cmd+Shift+Y</kbd> or click the toolbar icon, then drag a box
-      around an item to search it.
-    </p>
+    <div id="gate" class="gate" hidden></div>
 
-    <ul id="list" class="list"></ul>
+    <div id="app" hidden>
+      <div id="trial" class="trial" hidden></div>
 
-    <div id="empty" class="empty" hidden>
-      <div class="empty-icon">◎</div>
-      <p>No searches yet.</p>
-      <p class="empty-sub">Your captures will show up here with an auto title and price range.</p>
+      <div id="paywall" class="paywall" hidden>
+        <p class="paywall-title">You've used all your free scans</p>
+        <p class="paywall-sub">Upgrade to Pro for unlimited scans, history sync, and export.</p>
+        <button id="paywall-upgrade" class="btn-primary">Upgrade to Pro</button>
+      </div>
+
+      <p class="hint">
+        Press <kbd id="shortcut-hint">Ctrl/Cmd+Shift+Y</kbd> or click the toolbar icon, then drag a box
+        around an item to search it.
+      </p>
+
+      <ul id="list" class="list"></ul>
+
+      <div id="empty" class="empty" hidden>
+        <div class="empty-icon">◎</div>
+        <p>No searches yet.</p>
+        <p class="empty-sub">Your captures will show up here with an auto title and price range.</p>
+      </div>
     </div>
 
     <script src="sidepanel.js"></script>

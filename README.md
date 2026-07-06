@@ -60,17 +60,32 @@ extension/
   icons/             toolbar icons
 ```
 
+## Accounts & free trial
+
+FlipLens requires a **verified email**, then gives **10 free scans** before asking you
+to upgrade to Pro:
+
+1. First run, the sidebar asks for your email (+ optional marketing consent) and sends a
+   6-digit code. *(In development the code is shown on-screen — no real email is sent.)*
+2. Enter the code to activate; you get **10 free scans** with a trial meter.
+3. When the trial runs out, a paywall offers **Pro** (unlimited scans, history sync, export).
+
+Email is **normalized** (Gmail dots/`+aliases` collapse to one account; disposable domains
+blocked) to keep the free trial fair. Real email/verification and enforced quota require the
+backend (see below) — the extension ships with a local mock so the flow is testable now.
+
 ## Commercial-readiness (no payment/auth built yet)
 
-FlipLens is structured so it can become a paid product later without a rewrite,
-while remaining **fully testable today with no account**:
+FlipLens is structured so it can become a paid product later without a rewrite:
 
-- Runs on a **local anonymous session** (`src/auth.js`); dev builds unlock every feature.
+- Signup/verify/trial/convert flow wired to backend seams (`src/account.js`, `src/quota.js`),
+  running on a **local mock** in development.
 - A single **entitlements** layer (`src/entitlements.js`) gates features by plan; use
-  **Settings → Simulate plan** to preview Free vs Pro without billing.
-- **Backend/sync/analytics** are abstractions (`src/api.js`, `src/analytics.js`) that are
-  no-ops until you set endpoints + flip flags in `src/config.js`.
-- See [`ARCHITECTURE.md`](./ARCHITECTURE.md) → *What's needed to begin* for the go-live checklist.
+  **Settings → Simulate plan** to preview Free vs Pro, or the paywall's Upgrade to simulate a purchase.
+- **Backend/auth/sync/analytics** are abstractions (`src/api.js`, `src/auth.js`, `src/analytics.js`)
+  that are no-ops until you set endpoints + flip flags in `src/config.js`.
+- See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the gate flow, the **backend contract**, and
+  the go-live checklist.
 
 ## Notes
 

@@ -10,10 +10,12 @@
 
 import { CONFIG } from "./src/config.js";
 import { getSession } from "./src/auth.js";
-import { resolveEntitlements } from "./src/entitlements.js";
+import { resolveEntitlements, quotaView } from "./src/entitlements.js";
 import { getSettings, setSettings } from "./src/settings.js";
 import { track } from "./src/analytics.js";
 import * as store from "./src/history-store.js";
+import * as quota from "./src/quota.js";
+import * as account from "./src/account.js";
 
 const INJECTABLE = /^https?:\/\//;
 const PENDING_KEY = "flip_pending"; // { [tabId]: captureId }
@@ -45,6 +47,16 @@ async function startCapture(tab) {
   if (!tab || !tab.id) {
     [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   }
+
+  // Gate: require a verified email and remaining trial scans before capturing.
+  // If blocked, open the sidebar (which shows the right screen) instead.
+  const gate = await evaluateGate();
+  if (!gate.allowed) {
+    openPanel(tab && tab.windowId);
+    notifyPanel();
+    return;
+  }
+
   if (!tab || !tab.id || !INJECTABLE.test(tab.url || "")) return;
   try {
     await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["overlay.css"] });
@@ -52,6 +64,16 @@ async function startCapture(tab) {
   } catch (err) {
     console.error("FlipLens: failed to start capture", err);
   }
+}
+
+// Decide whether a capture may proceed. Returns { allowed, view }.
+async function evaluateGate() {
+  const acct = await account.getAccount();
+  if (!acct) return { allowed: false, view: "email" };
+  if (acct.status !== "active") return { allowed: false, view: "verify" };
+  const q = await quotaView();
+  if (!q.unlimited && q.remaining <= 0) return { allowed: false, view: "paywall" };
+  return { allowed: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +115,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     setSettings(message.patch || {}).then(async () => {
       notifyPanel();
       sendResponse(await getState());
+    });
+    return true;
+  }
+
+  if (type === "FLIPLENS_REGISTER_EMAIL") {
+    account.registerEmail(message.email, message.marketingOptIn).then(async (res) => {
+      notifyPanel();
+      sendResponse({ ...res, state: await getState() });
+    });
+    return true;
+  }
+
+  if (type === "FLIPLENS_VERIFY") {
+    account.verify(message.code).then(async (res) => {
+      notifyPanel();
+      if (res.ok) track("account_verified");
+      sendResponse({ ...res, state: await getState() });
+    });
+    return true;
+  }
+
+  if (type === "FLIPLENS_RESEND") {
+    account.resend().then((res) => sendResponse(res));
+    return true;
+  }
+
+  if (type === "FLIPLENS_UPGRADE") {
+    handleUpgrade().then(async (res) => {
+      notifyPanel();
+      sendResponse({ ...res, state: await getState() });
+    });
+    return true;
+  }
+
+  if (type === "FLIPLENS_DEV_RESET") {
+    Promise.all([account.reset(), quota.reset()]).then(async () => {
+      notifyPanel();
+      sendResponse({ ok: true, state: await getState() });
     });
     return true;
   }
@@ -151,19 +211,38 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 // ---------------------------------------------------------------------------
 
 async function getState() {
-  const [session, entitlements, settings] = await Promise.all([
+  const [session, entitlements, settings, acct, quotaInfo] = await Promise.all([
     getSession(),
     resolveEntitlements(),
-    getSettings()
+    getSettings(),
+    account.getAccount(),
+    quotaView()
   ]);
   return {
     env: CONFIG.env,
     version: CONFIG.version,
     flags: CONFIG.flags,
     session: { id: session.id, type: session.type },
+    account: account.publicView(acct),
+    quota: {
+      used: quotaInfo.used,
+      limit: quotaInfo.limit,
+      unlimited: quotaInfo.unlimited,
+      remaining: quotaInfo.unlimited ? null : quotaInfo.remaining
+    },
     entitlements,
     settings
   };
+}
+
+async function handleUpgrade() {
+  if (CONFIG.flags.billing && CONFIG.checkoutUrl) {
+    chrome.tabs.create({ url: CONFIG.checkoutUrl });
+    return { ok: true, checkout: true };
+  }
+  // Dev: simulate a successful purchase so the unlocked state is testable.
+  await account.simulatePurchase();
+  return { ok: true, simulated: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +272,7 @@ async function handleSelection(rect, tab) {
     searchUrl: "",
     status: "searching"
   });
+  await quota.increment();
   notifyPanel();
   track("capture_completed");
 

@@ -19,10 +19,13 @@
 
       <section class="card">
         <h2>Account</h2>
-        <p class="row"><span class="label">Status</span> <span id="account-status">Local session — no account needed</span></p>
+        <p class="row"><span class="label">Email</span> <span id="account-email">—</span></p>
+        <p class="row"><span class="label">Status</span> <span id="account-status">…</span></p>
+        <p class="row"><span class="label">Scans used</span> <span id="account-scans">…</span></p>
+        <p class="row"><span class="label">Marketing emails</span> <span id="account-marketing">…</span></p>
         <p class="row"><span class="label">Session ID</span> <code id="session-id">…</code></p>
-        <button class="btn" id="signin" disabled>Sign in (coming soon)</button>
-        <p class="note">Sign-in and cross-device accounts are not built yet. FlipLens works fully without an account.</p>
+        <button class="btn" id="dev-reset" hidden>Reset account &amp; trial (dev)</button>
+        <p class="note">Email verification uses a local mock in development (no real email is sent). Captured images are never uploaded to FlipLens.</p>
       </section>
 
       <section class="card">
