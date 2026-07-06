@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "FlipLens",
+  "version": "1.3.0",
+  "description": "Drag-select any item, reverse-image search it on Google Lens, and keep a sidebar history with auto titles, sourced price ranges, and live re-crop updates — nothing saved to disk.",
+  "permissions": ["activeTab", "scripting", "commands", "storage", "unlimitedStorage", "sidePanel"],
+  "host_permissions": ["https://www.google.com/*", "https://lens.google.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "FlipLens — capture & search (Ctrl/Cmd+Shift+Y)",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/search*", "https://lens.google.com/*"],
+      "js": ["results.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "start-capture": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Start FlipLens capture"
+    }
+  }
+}

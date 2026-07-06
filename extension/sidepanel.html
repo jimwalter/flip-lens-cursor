@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlipLens</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <img src="icons/icon32.png" alt="" class="brand-icon" />
+        <span>FlipLens</span>
+        <span id="plan-badge" class="plan-badge" hidden></span>
+      </div>
+      <div class="header-actions">
+        <button id="export" class="btn-text" title="Export history as JSON">Export</button>
+        <button id="clear" class="btn-text" title="Clear all history">Clear</button>
+        <button id="settings" class="btn-icon" title="Settings" aria-label="Settings">⚙</button>
+        <button id="collapse" class="btn-icon" title="Collapse sidebar" aria-label="Collapse sidebar">×</button>
+      </div>
+    </header>
+
+    <p class="hint">
+      Press <kbd id="shortcut-hint">Ctrl/Cmd+Shift+Y</kbd> or click the toolbar icon, then drag a box
+      around an item to search it.
+    </p>
+
+    <ul id="list" class="list"></ul>
+
+    <div id="empty" class="empty" hidden>
+      <div class="empty-icon">◎</div>
+      <p>No searches yet.</p>
+      <p class="empty-sub">Your captures will show up here with an auto title and price range.</p>
+    </div>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

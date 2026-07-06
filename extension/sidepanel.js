@@ -1,0 +1,217 @@
+// FlipLens side panel: renders the persisted search history with thumbnail,
+// auto/editable title, and price range. Stays open while browsing; the × button
+// collapses (closes) it.
+
+const listEl = document.getElementById("list");
+const emptyEl = document.getElementById("empty");
+const planBadge = document.getElementById("plan-badge");
+const exportBtn = document.getElementById("export");
+
+let appState = null;
+
+document.getElementById("collapse").addEventListener("click", () => window.close());
+
+document.getElementById("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
+
+document.getElementById("clear").addEventListener("click", async () => {
+  await chrome.runtime.sendMessage({ type: "FLIPLENS_CLEAR" });
+});
+
+exportBtn.addEventListener("click", exportHistory);
+
+// Show the platform-correct shortcut hint.
+chrome.commands.getAll().then((cmds) => {
+  const c = cmds.find((x) => x.name === "start-capture");
+  if (c && c.shortcut) document.getElementById("shortcut-hint").textContent = c.shortcut;
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message && message.type === "FLIPLENS_HISTORY_UPDATED") render();
+});
+
+render();
+
+async function render() {
+  appState = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_STATE" });
+  applyState();
+
+  const { history } = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_HISTORY" });
+  const items = history || [];
+
+  emptyEl.hidden = items.length > 0;
+  listEl.innerHTML = "";
+
+  for (const entry of items) {
+    listEl.appendChild(renderCard(entry));
+  }
+}
+
+function renderCard(entry) {
+  const li = document.createElement("li");
+  li.className = "card";
+
+  const thumb = document.createElement("img");
+  thumb.className = "thumb";
+  thumb.src = entry.thumbnail;
+  thumb.alt = entry.title || "capture";
+  thumb.title = "Open the Google Lens results";
+  thumb.addEventListener("click", () => openSearch(entry));
+  li.appendChild(thumb);
+
+  const body = document.createElement("div");
+  body.className = "body";
+
+  const title = document.createElement("div");
+  title.className = "title";
+  if (entry.status === "searching" && !entry.title) {
+    title.classList.add("searching");
+    title.textContent = "Searching…";
+    const spin = document.createElement("span");
+    spin.className = "spinner";
+    title.prepend(spin);
+  } else {
+    title.contentEditable = "true";
+    title.spellcheck = false;
+    title.textContent = entry.title || "Untitled capture";
+    title.title = "Click to rename";
+    const commit = () => {
+      const value = title.textContent.trim();
+      chrome.runtime.sendMessage({ type: "FLIPLENS_RENAME", cid: entry.id, title: value });
+    };
+    title.addEventListener("blur", commit);
+    title.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        title.blur();
+      }
+    });
+  }
+  body.appendChild(title);
+
+  const price = document.createElement("div");
+  if (entry.priceMin != null) {
+    price.className = "price";
+    price.appendChild(priceNode(entry.priceMin, entry.currency, entry.priceMinUrl, "Open lowest-price listing"));
+    if (entry.priceMax !== entry.priceMin) {
+      price.appendChild(document.createTextNode(" – "));
+      price.appendChild(priceNode(entry.priceMax, entry.currency, entry.priceMaxUrl, "Open highest-price listing"));
+    }
+  } else {
+    price.className = "price unknown";
+    price.textContent = entry.status === "searching" ? "Estimating price…" : "No price found";
+  }
+  body.appendChild(price);
+
+  if (entry.sourcePageUrl) {
+    const source = document.createElement("div");
+    source.className = "source";
+    const link = document.createElement("button");
+    link.className = "link source-link";
+    link.textContent = `From ${hostname(entry.sourcePageUrl)}`;
+    link.title = entry.sourcePageUrl;
+    link.addEventListener("click", () =>
+      chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url: entry.sourcePageUrl })
+    );
+    source.appendChild(link);
+    body.appendChild(source);
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+
+  const time = document.createElement("span");
+  time.className = "time";
+  time.textContent = relativeTime(entry.createdAt);
+  meta.appendChild(time);
+
+  const actions = document.createElement("div");
+  actions.className = "row-actions";
+
+  const open = document.createElement("button");
+  open.className = "link";
+  open.textContent = "Open";
+  open.addEventListener("click", () => openSearch(entry));
+  actions.appendChild(open);
+
+  const del = document.createElement("button");
+  del.className = "link danger";
+  del.textContent = "Delete";
+  del.addEventListener("click", () =>
+    chrome.runtime.sendMessage({ type: "FLIPLENS_DELETE", cid: entry.id })
+  );
+  actions.appendChild(del);
+
+  meta.appendChild(actions);
+  body.appendChild(meta);
+  li.appendChild(body);
+  return li;
+}
+
+function applyState() {
+  if (!appState || !appState.entitlements) return;
+  const ent = appState.entitlements;
+  planBadge.textContent = ent.label;
+  planBadge.hidden = false;
+  planBadge.classList.toggle("pro", ent.planId === "pro" || ent.planId === "dev");
+  // Export is a paid feature; show a lock hint when it's not entitled.
+  exportBtn.title = ent.limits.export
+    ? "Export history as JSON"
+    : "Export is a Pro feature";
+  exportBtn.classList.toggle("locked", !ent.limits.export);
+}
+
+async function exportHistory() {
+  if (appState && appState.entitlements && !appState.entitlements.limits.export) {
+    alert("Exporting history is a Pro feature. Switch the simulated plan to Pro in Settings to try it.");
+    return;
+  }
+  const { history } = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_HISTORY" });
+  const blob = new Blob([JSON.stringify(history || [], null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fliplens-history-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function openSearch(entry) {
+  if (entry.searchUrl) chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url: entry.searchUrl });
+}
+
+function priceNode(value, currency, url, title) {
+  const sym = currency || "$";
+  const label = sym + Math.round(value).toLocaleString();
+  if (url && /^https?:/.test(url)) {
+    const a = document.createElement("button");
+    a.className = "price-link";
+    a.textContent = label;
+    a.title = title;
+    a.addEventListener("click", () => chrome.runtime.sendMessage({ type: "FLIPLENS_OPEN", url }));
+    return a;
+  }
+  const span = document.createElement("span");
+  span.textContent = label;
+  return span;
+}
+
+function hostname(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch (e) {
+    return "source";
+  }
+}
+
+function relativeTime(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
