@@ -2,6 +2,8 @@
 
 ## Cursor Cloud specific instructions
 
+- **Working agreement (owner preference):** log progress to GitHub for transparency — commit often with clear messages, and treat each working feature as a checkpoint (small PR merged per checkpoint, or committed directly to `main` if the owner has opted into that). Business north star: a low-maintenance, self-serve product (users discover, convert, and pay on their own) that "just works" with minimal supervision — target dependency updates roughly monthly or less. Prefer designs that reduce ongoing operational babysitting (e.g. remote-configurable scraper selectors, graceful degradation, managed auth/billing) over ones that need frequent hand-patching.
+
 - **What this is:** `flip-lens-cursor` is a Chrome **Manifest V3** extension (**FlipLens**) living entirely in `extension/`. See `README.md` for the user flow and `PRODUCT_SPEC.md` for the spec.
 - **No build, no dependencies:** there is no package manager, bundler, or lockfile. The source in `extension/` loads directly. There is nothing to install and no update/build step to run.
 - **Load & test (manual):** at `chrome://extensions` enable Developer mode → **Load unpacked** → select `/workspace/extension`. Trigger via the toolbar icon or `Ctrl+Shift+Y` (`Cmd+Shift+Y` on macOS). After editing files, click the reload (↻) icon on the FlipLens card to pick up changes.
