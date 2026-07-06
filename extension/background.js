@@ -36,10 +36,14 @@ chrome.commands.onCommand.addListener((command, tab) => {
 });
 
 function openPanel(windowId) {
+  // Must be called synchronously inside a user gesture (action/command handler).
+  // Swallow both sync throws and async rejections so nothing goes unhandled.
   try {
-    if (windowId != null) chrome.sidePanel.open({ windowId });
+    if (windowId == null) return;
+    const p = chrome.sidePanel.open({ windowId });
+    if (p && typeof p.catch === "function") p.catch(() => {});
   } catch (err) {
-    console.debug("FlipLens: sidePanel.open skipped", err);
+    /* not a user gesture / unsupported — capture still works */
   }
 }
 
@@ -49,10 +53,11 @@ async function startCapture(tab) {
   }
 
   // Gate: require a verified email and remaining trial scans before capturing.
-  // If blocked, open the sidebar (which shows the right screen) instead.
+  // The panel was already opened synchronously by the trigger handler (opening
+  // it here would be after an await = outside the user gesture), so we just ask
+  // it to re-render into the right screen (email / verify / paywall).
   const gate = await evaluateGate();
   if (!gate.allowed) {
-    openPanel(tab && tab.windowId);
     notifyPanel();
     return;
   }
