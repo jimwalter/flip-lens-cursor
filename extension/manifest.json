@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "FlipLens",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Drag-select any item, reverse-image search it on Google Lens, and keep a sidebar history with auto titles, sourced price ranges, and live re-crop updates — nothing saved to disk.",
   "permissions": ["activeTab", "scripting", "commands", "storage", "unlimitedStorage", "sidePanel"],
   "host_permissions": ["https://www.google.com/*", "https://lens.google.com/*"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
+  "options_page": "options.html",
   "action": {
     "default_title": "FlipLens — capture & search (Ctrl/Cmd+Shift+Y)",
     "default_icon": {

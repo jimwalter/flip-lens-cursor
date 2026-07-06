@@ -119,3 +119,22 @@ Individual resellers browsing estate-sale / marketplace listings in Chrome on ma
 >   sidebar entry (title + price range) automatically, every time the selection changes.
 > - Each entry links back to the URL of the page the screenshot was taken from, so the user can return later.
 > - A manually renamed title is preserved across re-searches (auto titles keep updating).
+
+## 16. Commercial-readiness scaffolding (v1.3, implemented — no payment/auth built)
+> **Goal:** make FlipLens ready to become a paid product without building billing or auth yet,
+> and keep it fully testable with no account. See `ARCHITECTURE.md`.
+>
+> **Delivered**
+> - `src/` seams: `config` (env/flags/plans), `auth` (local anonymous session; hosted-auth stub),
+>   `entitlements` (single feature gate), `api` (no-op backend client), `history-store` (repo w/ plan cap),
+>   `analytics` (opt-in no-op), `settings`.
+> - Settings/options page: account placeholder, plan display + **dev plan simulator**, cloud-sync toggle
+>   (coming soon), telemetry opt-in.
+> - Sidebar: plan badge + **Pro-gated Export** (JSON) demonstrating entitlement gating.
+> - Default **Developer** entitlements unlock all features → no account/payment required to test.
+>
+> **Assumptions (editable in `config.js`)**
+> - Freemium: **Free** (25-item history, Lens only, local) vs **Pro** (large history, cloud sync, export, multi-engine).
+>
+> **To go live (not built):** hosted auth (OAuth/JWT), Stripe billing + webhook, backend API
+> (`/entitlements`, `/history`, `/events`), Privacy Policy/ToS, Chrome Web Store listing. See `ARCHITECTURE.md` §"What's needed to begin".

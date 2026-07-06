@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlipLens — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="head">
+        <img src="icons/icon48.png" alt="" class="logo" />
+        <div>
+          <h1>FlipLens</h1>
+          <p class="sub">Settings &amp; account</p>
+        </div>
+        <span id="plan-badge" class="plan-badge"></span>
+      </header>
+
+      <section class="card">
+        <h2>Account</h2>
+        <p class="row"><span class="label">Status</span> <span id="account-status">Local session — no account needed</span></p>
+        <p class="row"><span class="label">Session ID</span> <code id="session-id">…</code></p>
+        <button class="btn" id="signin" disabled>Sign in (coming soon)</button>
+        <p class="note">Sign-in and cross-device accounts are not built yet. FlipLens works fully without an account.</p>
+      </section>
+
+      <section class="card">
+        <h2>Plan</h2>
+        <p class="row"><span class="label">Current</span> <span id="plan-label">…</span></p>
+        <ul class="limits" id="limits"></ul>
+        <div class="row">
+          <span class="label">Simulate plan</span>
+          <select id="sim-plan">
+            <option value="auto">Auto (default)</option>
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+          </select>
+        </div>
+        <p class="note">Development-only: preview feature gating (history cap, export, etc.) without billing. Billing/checkout is not built yet.</p>
+      </section>
+
+      <section class="card">
+        <h2>Cloud sync</h2>
+        <label class="toggle">
+          <input type="checkbox" id="cloud-sync" />
+          <span>Sync history across devices</span>
+        </label>
+        <p class="note" id="sync-note">Coming soon — history is stored locally on this device for now.</p>
+      </section>
+
+      <section class="card">
+        <h2>Privacy</h2>
+        <label class="toggle">
+          <input type="checkbox" id="telemetry" />
+          <span>Share anonymous usage analytics</span>
+        </label>
+        <p class="note">Off by default. Nothing leaves your device unless this is on and remote analytics has shipped. Captured images are never uploaded to FlipLens.</p>
+      </section>
+
+      <section class="card">
+        <h2>About</h2>
+        <p class="row"><span class="label">Version</span> <span id="version">…</span></p>
+        <p class="row"><span class="label">Environment</span> <span id="env">…</span></p>
+      </section>
+    </div>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,19 +1,28 @@
-// FlipLens background service worker.
+// FlipLens background service worker (ES module).
 // - Routes the trigger (toolbar icon or shortcut) to the selection overlay.
 // - Captures + crops the chosen region in-memory and hands it to the uploader.
 // - Tracks the search tab so the results scraper can attach a title + price.
-// - Owns the persisted search history used by the side panel.
+// - Exposes app state (session/plan/settings) and the history API to the UI.
+//
+// Commercial seams (auth, entitlements, sync, analytics, config) live in ./src
+// and are wired here. Everything defaults to local + unlocked so the product is
+// testable with no account and no backend.
+
+import { CONFIG } from "./src/config.js";
+import { getSession } from "./src/auth.js";
+import { resolveEntitlements } from "./src/entitlements.js";
+import { getSettings, setSettings } from "./src/settings.js";
+import { track } from "./src/analytics.js";
+import * as store from "./src/history-store.js";
 
 const INJECTABLE = /^https?:\/\//;
-const HISTORY_KEY = "flip_history";
 const PENDING_KEY = "flip_pending"; // { [tabId]: captureId }
-const MAX_HISTORY = 100;
 
 // ---------------------------------------------------------------------------
 // Triggers
 // ---------------------------------------------------------------------------
 
-chrome.action.onClicked.addListener(async (tab) => {
+chrome.action.onClicked.addListener((tab) => {
   openPanel(tab && tab.windowId);
   startCapture(tab);
 });
@@ -28,7 +37,6 @@ function openPanel(windowId) {
   try {
     if (windowId != null) chrome.sidePanel.open({ windowId });
   } catch (err) {
-    // Opening the panel may be rejected outside a user gesture; capture still works.
     console.debug("FlipLens: sidePanel.open skipped", err);
   }
 }
@@ -37,9 +45,7 @@ async function startCapture(tab) {
   if (!tab || !tab.id) {
     [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   }
-  if (!tab || !tab.id || !INJECTABLE.test(tab.url || "")) {
-    return; // can't inject into chrome://, the Web Store, etc.
-  }
+  if (!tab || !tab.id || !INJECTABLE.test(tab.url || "")) return;
   try {
     await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["overlay.css"] });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["overlay.js"] });
@@ -78,25 +84,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (type === "FLIPLENS_GET_STATE") {
+    getState().then((state) => sendResponse(state));
+    return true;
+  }
+
+  if (type === "FLIPLENS_SET_SETTINGS") {
+    setSettings(message.patch || {}).then(async () => {
+      notifyPanel();
+      sendResponse(await getState());
+    });
+    return true;
+  }
+
   if (type === "FLIPLENS_GET_HISTORY") {
-    getHistory().then((history) => sendResponse({ history }));
+    store.getHistory().then((history) => sendResponse({ history }));
     return true;
   }
 
   if (type === "FLIPLENS_RENAME") {
-    updateEntry(message.cid, { title: message.title, titleAuto: false }).then(() =>
-      sendResponse({ ok: true })
-    );
+    store.updateEntry(message.cid, { title: message.title, titleAuto: false }).then(() => {
+      notifyPanel();
+      sendResponse({ ok: true });
+    });
     return true;
   }
 
   if (type === "FLIPLENS_DELETE") {
-    deleteEntry(message.cid).then(() => sendResponse({ ok: true }));
+    store.deleteEntry(message.cid).then(() => {
+      notifyPanel();
+      sendResponse({ ok: true });
+    });
     return true;
   }
 
   if (type === "FLIPLENS_CLEAR") {
-    setHistory([]).then(() => {
+    store.clearHistory().then(() => {
       notifyPanel();
       sendResponse({ ok: true });
     });
@@ -112,16 +135,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// A pending search tab was closed before results came back: stop its spinner.
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   const pending = await getPending();
   if (pending[tabId] != null) {
     const cid = pending[tabId];
     delete pending[tabId];
     await setPending(pending);
-    await updateEntry(cid, { status: "done" });
+    await store.updateEntry(cid, { status: "done" });
+    notifyPanel();
   }
 });
+
+// ---------------------------------------------------------------------------
+// App state
+// ---------------------------------------------------------------------------
+
+async function getState() {
+  const [session, entitlements, settings] = await Promise.all([
+    getSession(),
+    resolveEntitlements(),
+    getSettings()
+  ]);
+  return {
+    env: CONFIG.env,
+    version: CONFIG.version,
+    flags: CONFIG.flags,
+    session: { id: session.id, type: session.type },
+    entitlements,
+    settings
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Capture + search
@@ -132,9 +175,11 @@ async function handleSelection(rect, tab) {
   const full = await cropImage(dataUrl, rect);
   const thumbnail = await makeThumbnail(full, 240);
   const cid = crypto.randomUUID();
+  const session = await getSession();
 
-  await prependEntry({
+  await store.addEntry({
     id: cid,
+    userId: session.id,
     createdAt: Date.now(),
     thumbnail,
     title: "",
@@ -148,6 +193,8 @@ async function handleSelection(rect, tab) {
     searchUrl: "",
     status: "searching"
   });
+  notifyPanel();
+  track("capture_completed");
 
   await chrome.storage.session.set({ [`img_${cid}`]: full });
 
@@ -164,8 +211,7 @@ async function handleResult(message, tab) {
   const { cid } = message;
   if (!cid) return;
 
-  const history = await getHistory();
-  const entry = history.find((e) => e.id === cid);
+  const entry = await store.getEntry(cid);
   if (!entry) return;
 
   const patch = {
@@ -177,11 +223,12 @@ async function handleResult(message, tab) {
     searchUrl: message.searchUrl || "",
     status: "done"
   };
-  // Don't clobber a title the user has renamed; keep updating auto titles
+  // Don't clobber a title the user renamed; keep updating auto titles
   // (including when a Lens re-crop re-searches).
   if (entry.titleAuto !== false && message.title) patch.title = message.title;
 
-  await updateEntry(cid, patch);
+  await store.updateEntry(cid, patch);
+  notifyPanel();
 
   const pending = await getPending();
   const tabId = tab && tab.id;
@@ -245,39 +292,8 @@ async function blobToDataUrl(blob) {
 }
 
 // ---------------------------------------------------------------------------
-// History + pending-tab storage
+// Pending-tab storage
 // ---------------------------------------------------------------------------
-
-async function getHistory() {
-  const { [HISTORY_KEY]: history } = await chrome.storage.local.get(HISTORY_KEY);
-  return Array.isArray(history) ? history : [];
-}
-
-async function setHistory(history) {
-  await chrome.storage.local.set({ [HISTORY_KEY]: history.slice(0, MAX_HISTORY) });
-}
-
-async function prependEntry(entry) {
-  const history = await getHistory();
-  history.unshift(entry);
-  await setHistory(history);
-  notifyPanel();
-}
-
-async function updateEntry(cid, patch) {
-  const history = await getHistory();
-  const idx = history.findIndex((e) => e.id === cid);
-  if (idx === -1) return;
-  history[idx] = { ...history[idx], ...patch };
-  await setHistory(history);
-  notifyPanel();
-}
-
-async function deleteEntry(cid) {
-  const history = await getHistory();
-  await setHistory(history.filter((e) => e.id !== cid));
-  notifyPanel();
-}
 
 async function getPending() {
   const { [PENDING_KEY]: pending } = await chrome.storage.session.get(PENDING_KEY);
@@ -289,6 +305,5 @@ async function setPending(pending) {
 }
 
 function notifyPanel() {
-  // Best-effort ping; ignored if the panel isn't open.
   chrome.runtime.sendMessage({ type: "FLIPLENS_HISTORY_UPDATED" }).catch(() => {});
 }

@@ -4,7 +4,9 @@
 any item on a webpage, capture it **in memory**, and instantly run a **Google Lens**
 reverse-image search in a new tab. Nothing is ever saved to disk.
 
-See [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md) for the full product spec and feature request.
+See [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md) for the full product spec and feature request,
+and [`ARCHITECTURE.md`](./ARCHITECTURE.md) for how it's structured and made
+commercial-ready (auth/plans/sync/analytics seams) while staying testable with no account.
 
 ## How it works
 
@@ -46,14 +48,29 @@ in [`extension/`](./extension) loads directly.
 
 ```
 extension/
-  manifest.json      MV3 manifest (permissions, action, side panel, command shortcut)
-  background.js      service worker: trigger routing, capture + crop, history store
+  manifest.json      MV3 manifest (permissions, action, side panel, options, command)
+  background.js      module service worker: trigger routing, capture + crop, app state
   overlay.js/.css    injected drag-to-select overlay
   uploader.html/.js  new tab that POSTs the image to Google Lens
   results.js         content script: scrapes title + price range from Lens results
-  sidepanel.html/.css/.js  the history sidebar
+  sidepanel.html/.css/.js  the history sidebar (plan badge, export, settings)
+  options.html/.css/.js    settings/account page (+ dev plan simulator)
+  src/               commercial seams (config, auth, entitlements, api, analytics,
+                     settings, history-store) — local + unlocked by default
   icons/             toolbar icons
 ```
+
+## Commercial-readiness (no payment/auth built yet)
+
+FlipLens is structured so it can become a paid product later without a rewrite,
+while remaining **fully testable today with no account**:
+
+- Runs on a **local anonymous session** (`src/auth.js`); dev builds unlock every feature.
+- A single **entitlements** layer (`src/entitlements.js`) gates features by plan; use
+  **Settings → Simulate plan** to preview Free vs Pro without billing.
+- **Backend/sync/analytics** are abstractions (`src/api.js`, `src/analytics.js`) that are
+  no-ops until you set endpoints + flip flags in `src/config.js`.
+- See [`ARCHITECTURE.md`](./ARCHITECTURE.md) → *What's needed to begin* for the go-live checklist.
 
 ## Notes
 

@@ -4,12 +4,20 @@
 
 const listEl = document.getElementById("list");
 const emptyEl = document.getElementById("empty");
+const planBadge = document.getElementById("plan-badge");
+const exportBtn = document.getElementById("export");
+
+let appState = null;
 
 document.getElementById("collapse").addEventListener("click", () => window.close());
+
+document.getElementById("settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
 document.getElementById("clear").addEventListener("click", async () => {
   await chrome.runtime.sendMessage({ type: "FLIPLENS_CLEAR" });
 });
+
+exportBtn.addEventListener("click", exportHistory);
 
 // Show the platform-correct shortcut hint.
 chrome.commands.getAll().then((cmds) => {
@@ -24,6 +32,9 @@ chrome.runtime.onMessage.addListener((message) => {
 render();
 
 async function render() {
+  appState = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_STATE" });
+  applyState();
+
   const { history } = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_HISTORY" });
   const items = history || [];
 
@@ -134,6 +145,36 @@ function renderCard(entry) {
   body.appendChild(meta);
   li.appendChild(body);
   return li;
+}
+
+function applyState() {
+  if (!appState || !appState.entitlements) return;
+  const ent = appState.entitlements;
+  planBadge.textContent = ent.label;
+  planBadge.hidden = false;
+  planBadge.classList.toggle("pro", ent.planId === "pro" || ent.planId === "dev");
+  // Export is a paid feature; show a lock hint when it's not entitled.
+  exportBtn.title = ent.limits.export
+    ? "Export history as JSON"
+    : "Export is a Pro feature";
+  exportBtn.classList.toggle("locked", !ent.limits.export);
+}
+
+async function exportHistory() {
+  if (appState && appState.entitlements && !appState.entitlements.limits.export) {
+    alert("Exporting history is a Pro feature. Switch the simulated plan to Pro in Settings to try it.");
+    return;
+  }
+  const { history } = await chrome.runtime.sendMessage({ type: "FLIPLENS_GET_HISTORY" });
+  const blob = new Blob([JSON.stringify(history || [], null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `fliplens-history-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 function openSearch(entry) {
